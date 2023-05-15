@@ -21,8 +21,20 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.*;
+
+import static org.apache.catalina.manager.Constants.CHARSET;
+
 
 @Service
 public class CustomerServiceImpl implements CustomerService {
@@ -130,13 +142,161 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public Object encriptCard(CustomerCryptCardRequest request) {
-        return null;
+    public CustomerCardVO encriptCard(CustomerCreateCardRequest request) throws Exception {
+        this.validateCustomerCreateCardRequest(request);
+        try {
+            Customer customer = findCustomerByCpf(request.getCustomer().getCpf());
+            
+            if(!customer.getCards().isEmpty()) {
+                customer.setCards(new ArrayList<>());
+            }
+
+            CustomerCard card = new CustomerCard();
+            request.setCustomer(null);
+            KeyPair keyPair = this.createKeyPair();
+            String encriptedCardRequestString = encryptHashMessage(keyPair, request, card);
+
+            card = cardRepository.findByEncriptedCardJsonAndCustomer(customer, encriptedCardRequestString);
+            updateCard(request, customer, card);
+            if(card == null) {
+                card = new CustomerCard();
+            }
+
+            card.setCustomer(customer);
+            card.setEncriptedCardJson(encriptedCardRequestString);
+            card.setPrivateKey(new String(keyPair.getPrivate().getEncoded(), StandardCharsets.UTF_8));
+            card.setPublicKey(new String(keyPair.getPublic().getEncoded(), StandardCharsets.UTF_8));
+            card.setIsActive(Boolean.TRUE);
+            card.setModifyDt(new Date());
+            card.setRegisterDt(new Date());
+
+            customer.getCards().add(card);
+            cardRepository.saveAll(customer.getCards());
+            return new CustomerCardVO(card);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new Exception(INTERNAL_ERROR);
+        }
+    }
+
+    private void updateCard(CustomerCreateCardRequest request, Customer customer, CustomerCard card) {
+    }
+
+    private String decryptHashMessage(String privateKey, String encryptedMessage) throws Exception {
+
+        String[] parts = encryptedMessage.split("\\|");
+        String message = parts[0];
+        String signatureString = parts[1];
+        String publicKeyString = parts[2];
+
+        Signature signature = Signature.getInstance("SHA256withRSA");
+        signature.initVerify(this.publicKeyFromBase64String(publicKeyString));
+        signature.update(message.getBytes(CHARSET));
+        boolean signatureValid = signature.verify(Base64.getDecoder().decode(signatureString));
+
+        if (signatureValid) {
+            return message;
+        } else {
+            throw new Exception("Invalid signature");
+        }
+    }
+
+    private PublicKey publicKeyFromBase64String(String publicKeyString) throws Exception {
+        byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyString);
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(publicKeyBytes);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePublic(keySpec);
+    }
+
+    private String encryptHashMessage(KeyPair keyPair,CustomerCreateCardRequest request, CustomerCard card) throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+
+        Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+
+        cipher.init(Cipher.ENCRYPT_MODE, keyPair.getPublic());
+        return new String(cipher.doFinal(request.toString().getBytes()), StandardCharsets.UTF_8);
+    }
+
+    private KeyPair createKeyPair() throws NoSuchAlgorithmException {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048);
+        return keyPairGenerator.generateKeyPair();
+    }
+
+    private void validateCustomerCreateCardRequest(CustomerCreateCardRequest request) throws Exception {
+        if(request == null) {
+            throw new Exception("Dados inválidos.");
+        }
+        if(request.getCustomer() == null) {
+            throw new Exception("Dados do cliente inválidos.");
+        }
+        if(request.getCustomer().getCpf() == null) {
+            throw new Exception("Dados do cliente inválidos.");
+        }
+        if(request.getNumber() == null) {
+            throw new Exception("Número do cartão inválido.");
+        }
+        if(request.getValidThru() == null) {
+            throw new Exception("Validade do cartão inválida.");
+        }
+        if(request.getFlagName() == null) {
+            throw new Exception("Bandeira do cartão inválida.");
+        }
+        if(request.getFullName() == null) {
+            throw new Exception("Nome do cartão inválido.");
+        }
+        if(request.getSecCode() == null) {
+            throw new Exception("Cód. de segurança do cartão inválido.");
+        }
+        if(request.getIsCredit() == null) {
+            throw new Exception("Tipo de PGTO. do cartão inválido.");
+        }
     }
 
     @Override
-    public Object dencriptCard(CustomerCryptCardRequest request) {
-        return null;
+    public Object deCriptCard(CustomerCryptCardRequest request) throws Exception {
+
+        validateDecriptRequest(request);
+        Customer customer = repository.findByCpf(request.getCustomer().getCpf());
+        if(customer == null) {
+            throw new Exception("Cliente não encontrado.");
+        }
+
+        CustomerCard card = cardRepository.findByEncriptedCardJsonAndCustomer(customer, request.getEncriptedCard());
+        if(card == null) {
+            throw new Exception("Cartão não encontrado");
+        }
+        return this.deCriptedCard(card, new CustomerVO(customer));
+    }
+
+    private CustomerCardVO deCriptedCard(CustomerCard card, CustomerVO customerVO) throws Exception {
+
+        String decript = this.decryptHashMessage(card.getPrivateKey(),card.getEncriptedCardJson());
+
+        CustomerCardVO cardVO = new CustomerCardVO();
+        cardVO.setCustomer(customerVO);
+/*        cardVO.setFullName();
+        cardVO.setFlagName();
+        cardVO.setNumber();
+        cardVO.setIsCredit();
+        cardVO.setSecCode();
+        cardVO.setValidThru();*/
+        return cardVO;
+    }
+
+    private void validateDecriptRequest(CustomerCryptCardRequest request) throws Exception {
+        if(request == null) {
+            throw new Exception("Request inválido.");
+        }
+        if(request.getCustomer() == null) {
+            throw new Exception("Cliente inválido.");
+        }
+        if(request.getCustomer().getCpf() == null) {
+            throw new Exception("CPF inválido.");
+        }
+        if(request.getEncriptedCard() == null) {
+            throw new Exception("Cartão inválido.");
+        }
     }
 
     @Override

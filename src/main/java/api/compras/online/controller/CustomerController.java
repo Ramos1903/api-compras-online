@@ -22,13 +22,13 @@ public class CustomerController {
     }
 
     @PutMapping("/card/encript")
-    public ResponseEntity<Object> encript(@RequestBody CustomerCryptCardRequest request) throws Exception {
+    public ResponseEntity<Object> encript(@RequestBody CustomerCreateCardRequest request) throws Exception {
         return new ResponseEntity<>(customerService.encriptCard(request), HttpStatus.OK);
     }
 
-    @GetMapping("/card/deCript")
+    @GetMapping("/card/decript")
     public ResponseEntity<Object> decript(@RequestBody CustomerCryptCardRequest request) throws Exception {
-        return new ResponseEntity<>(customerService.dencriptCard(request), HttpStatus.OK);
+        return new ResponseEntity<>(customerService.deCriptCard(request), HttpStatus.OK);
     }
 
     @GetMapping("/search")

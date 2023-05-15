@@ -7,12 +7,12 @@ import lombok.EqualsAndHashCode;
 import javax.persistence.*;
 import java.util.Date;
 
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode
 @Data
 @Table(name = "customer_card")
 @Entity
 @PrimaryKeyJoinColumn(name = "seq_customer_card")
-public class CustomerCard extends UserModel {
+public class CustomerCard {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -29,7 +29,7 @@ public class CustomerCard extends UserModel {
     private String publicKey;
 
     @Column(name = "is_active")
-    private String isActive;
+    private Boolean isActive;
 
     @Temporal(TemporalType.DATE)
     @Column(name = "register_dt")

@@ -9,8 +9,8 @@ public interface CustomerService {
 
     public Object create(CustomerCreateAccountRequest request) throws Exception;
     public Object customers(CustomerSearchRequest request) throws Exception;
-    public Object encriptCard(CustomerCryptCardRequest request) throws Exception;
-    public Object dencriptCard(CustomerCryptCardRequest request) throws Exception;
+    public Object encriptCard(CustomerCreateCardRequest request) throws Exception;
+    public Object deCriptCard(CustomerCryptCardRequest request) throws Exception;
     public Object cards(CustomerCardSearchRequest request) throws Exception;
     public Object transactionsByDate(CustomerTransactionSearchRequest request) throws Exception;
     public Object transaction(CustomerTransactionVO request) throws Exception;
