@@ -46,7 +46,7 @@ public class CustomerController {
         return new ResponseEntity<>(customerService.transactionsByDate(request), HttpStatus.OK);
     }
 
-    @GetMapping("/transactions/save")
+    @PutMapping("/transactions/save")
     public ResponseEntity<Object> transaction(CustomerTransactionVO request) throws Exception {
         return new ResponseEntity<>(customerService.transaction(request), HttpStatus.OK);
     }

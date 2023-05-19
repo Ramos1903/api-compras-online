@@ -87,6 +87,10 @@ public class CustomerServiceImpl implements CustomerService {
         if(StringUtils.isBlank(request.getCpf())) {
             throw new Exception("CPF inválido.");
         }
+        Customer c = repository.findByCpf(request.getCpf());
+        if(c != null){
+            throw new Exception("Cleinte já cadastrado pelo CPF:"+ request.getCpf());
+        }
         if(request.getBirthDate() == null) {
             throw new Exception("Data de aniversário inválida.");
         }
@@ -132,7 +136,7 @@ public class CustomerServiceImpl implements CustomerService {
     public List<CustomerVO> customers(CustomerSearchRequest request) throws Exception {
         validateCustomerSearchRequest(request);
         try {
-            Pageable pagination = PageRequest.of(request.getPage(), PAGINATION_SIZE, Sort.by("name"));
+            Pageable pagination = PageRequest.of(request.getPage(), PAGINATION_SIZE, Sort.by("id"));
             Page<Customer> customers = repository.findAll(pagination);
             return transformCustomerToVO(customers);
         }catch (Exception e) {
@@ -304,7 +308,7 @@ public class CustomerServiceImpl implements CustomerService {
         this.validateCustomerCardRequest(request);
         try {
             Customer customer = repository.findByCpf(request.getCpf());
-            Pageable filteredPagination = PageRequest.of(request.getPage(), PAGINATION_SIZE, Sort.by("date"));
+            Pageable filteredPagination = PageRequest.of(request.getPage(), PAGINATION_SIZE, Sort.by("id"));
             Page<CustomerCard> cards = cardRepository.getAllByCustomer(customer, filteredPagination);
             return transformCardToVO(cards);
         } catch (Exception e) {

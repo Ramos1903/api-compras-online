@@ -13,7 +13,7 @@ import java.util.Date;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class CustomerCreateAccountRequest {
+public class    CustomerCreateAccountRequest {
 
     private String name;
     private String zipCode;

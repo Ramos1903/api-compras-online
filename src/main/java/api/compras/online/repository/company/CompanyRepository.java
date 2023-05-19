@@ -8,8 +8,5 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.query.Param;
 
 public interface CompanyRepository extends PagingAndSortingRepository<Company, Long>, JpaSpecificationExecutor<Company> {
-
-    Company findByName(@Param("name") String name);
-
     Company findByCnpj(@Param("cnpj") String cnpj);
 }

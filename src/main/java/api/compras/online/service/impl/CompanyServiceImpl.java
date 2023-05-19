@@ -32,7 +32,7 @@ public class CompanyServiceImpl implements CompanyService {
     public Object companies(CompanySearchRequest request) throws Exception {
         this.validateCompanySearchRequest(request);
         try {
-            Pageable pagination = PageRequest.of(request.getPage(), PAGINATION_SIZE, Sort.by("name"));
+            Pageable pagination = PageRequest.of(request.getPage(), PAGINATION_SIZE, Sort.by("id"));
             Page<Company> companies = repository.findAll(pagination);
             return transformCompanyToVO(companies);
         }catch (Exception e) {
@@ -73,6 +73,10 @@ public class CompanyServiceImpl implements CompanyService {
         }
         if(StringUtils.isBlank(request.getCnpj())) {
             throw new Exception("CNPJ inválido.");
+        }
+        Company c = repository.findByCnpj(request.getCnpj());
+        if(c != null){
+            throw new Exception("Empresa já cadastrada pelo CNPJ:"+ request.getCnpj());
         }
         if(StringUtils.isBlank(request.getZipCode())) {
             throw new Exception("Código postal inválido.");
