@@ -28,6 +28,7 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+import javax.persistence.EntityManager;
 
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
@@ -47,6 +48,9 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Autowired
     private CustomerTransactionRepository transactionRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Autowired
     private CompanyRepository companyRepository;
@@ -150,41 +154,39 @@ public class CustomerServiceImpl implements CustomerService {
         this.validateCustomerCreateCardRequest(request);
         try {
             Customer customer = findCustomerByCpf(request.getCustomer().getCpf());
-            
-            if(!customer.getCards().isEmpty()) {
+
+            if(customer.getCards().isEmpty()) {
                 customer.setCards(new ArrayList<>());
             }
 
-            CustomerCard card = new CustomerCard();
             request.setCustomer(null);
             KeyPair keyPair = this.createKeyPair();
-            String encriptedCardRequestString = encryptHashMessage(keyPair, request, card);
+            String encriptedCardRequestString = encryptHashMessage(keyPair, request);
 
-            card = cardRepository.findByEncriptedCardJsonAndCustomer(customer, encriptedCardRequestString);
-            updateCard(request, customer, card);
-            if(card == null) {
-                card = new CustomerCard();
+            CustomerCard card = new CustomerCard();
+
+            Optional<CustomerCard> existingCar;
+            existingCar = customer.getCards().stream().filter(i -> i.getEncriptedCardJson().equals(encriptedCardRequestString)).findFirst();
+            if(existingCar.isPresent()) {
+                card = existingCar.get();
             }
 
             card.setCustomer(customer);
             card.setEncriptedCardJson(encriptedCardRequestString);
-            card.setPrivateKey(new String(keyPair.getPrivate().getEncoded(), StandardCharsets.UTF_8));
-            card.setPublicKey(new String(keyPair.getPublic().getEncoded(), StandardCharsets.UTF_8));
+            card.setPrivateKey(new String(keyPair.getPrivate().getEncoded()));
+            card.setPublicKey(new String(keyPair.getPublic().getEncoded()));
             card.setIsActive(Boolean.TRUE);
             card.setModifyDt(new Date());
             card.setRegisterDt(new Date());
 
             customer.getCards().add(card);
-            cardRepository.saveAll(customer.getCards());
+            repository.save(customer);
             return new CustomerCardVO(card);
 
         } catch (Exception e) {
             e.printStackTrace();
             throw new Exception(INTERNAL_ERROR);
         }
-    }
-
-    private void updateCard(CustomerCreateCardRequest request, Customer customer, CustomerCard card) {
     }
 
     private String decryptHashMessage(String privateKey, String encryptedMessage) throws Exception {
@@ -213,12 +215,14 @@ public class CustomerServiceImpl implements CustomerService {
         return keyFactory.generatePublic(keySpec);
     }
 
-    private String encryptHashMessage(KeyPair keyPair,CustomerCreateCardRequest request, CustomerCard card) throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
-
+    private String encryptHashMessage(KeyPair keyPair, CustomerCreateCardRequest request) throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
         Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
-
         cipher.init(Cipher.ENCRYPT_MODE, keyPair.getPublic());
-        return new String(cipher.doFinal(request.toString().getBytes()), StandardCharsets.UTF_8);
+
+        byte[] encryptedBytes = cipher.doFinal(request.toString().getBytes(StandardCharsets.UTF_8));
+        String encryptedBase64 = Base64.getEncoder().encodeToString(encryptedBytes);
+
+        return encryptedBase64;
     }
 
     private KeyPair createKeyPair() throws NoSuchAlgorithmException {
@@ -266,7 +270,7 @@ public class CustomerServiceImpl implements CustomerService {
             throw new Exception("Cliente não encontrado.");
         }
 
-        CustomerCard card = cardRepository.findByEncriptedCardJsonAndCustomer(customer, request.getEncriptedCard());
+        CustomerCard card = cardRepository.findByEncriptedCardJsonAndCustomer_Cpf(customer.getCpf(), request.getEncriptedCard());
         if(card == null) {
             throw new Exception("Cartão não encontrado");
         }

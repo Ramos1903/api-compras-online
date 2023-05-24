@@ -47,7 +47,7 @@ public class CustomerController {
     }
 
     @PutMapping("/transactions/save")
-    public ResponseEntity<Object> transaction(CustomerTransactionVO request) throws Exception {
+    public ResponseEntity<Object> transaction(@RequestBody CustomerTransactionVO request) throws Exception {
         return new ResponseEntity<>(customerService.transaction(request), HttpStatus.OK);
     }
 }
