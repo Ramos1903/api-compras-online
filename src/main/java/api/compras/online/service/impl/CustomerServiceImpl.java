@@ -13,6 +13,7 @@ import api.compras.online.repository.customer.CustomerCardRepository;
 import api.compras.online.repository.customer.CustomerRepository;
 import api.compras.online.repository.customer.CustomerTransactionRepository;
 import api.compras.online.service.CustomerService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.platform.commons.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -283,19 +284,24 @@ public class CustomerServiceImpl implements CustomerService {
         return this.deCriptedCard(card, new CustomerVO(customer));
     }
 
-    private CustomerCardVO deCriptedCard(CustomerCard card, CustomerVO customerVO) throws Exception {
+    private Object deCriptedCard(CustomerCard card, CustomerVO customerVO) throws Exception {
 
         String decript = this.decryptHashMessage(card.getPrivateKey(), card.getEncriptedCardJson());
-
-        CustomerCardVO cardVO = new CustomerCardVO();
-        cardVO.setCustomer(customerVO);
-/*        cardVO.setFullName();
-        cardVO.setFlagName();
-        cardVO.setNumber();
-        cardVO.setIsCredit();
-        cardVO.setSecCode();
-        cardVO.setValidThru();*/
-        return cardVO;
+        return decript;
+//TODO encript card message as JSON not as entity class
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        CustomerCreateCardRequest cardData = objectMapper.readValue(decript, CustomerCreateCardRequest.class);
+//
+//        CustomerCardVO cardVO = new CustomerCardVO();
+//        cardVO.setCustomer(customerVO);
+//        cardVO.setFullName(cardData.getFullName());
+//        cardVO.setFlagName(cardData.getFlagName());
+//        cardVO.setNumber(cardData.getNumber());
+//        cardVO.setIsCredit(cardData.getIsCredit());
+//        cardVO.setSecCode(cardData.getSecCode());
+//        cardVO.setValidThru(cardData.getValidThru());
+//
+//        return cardVO;
     }
 
     private void validateDecriptRequest(CustomerCryptCardRequest request) throws Exception {
