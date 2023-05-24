@@ -30,6 +30,7 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.persistence.EntityManager;
 
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.*;
@@ -173,8 +174,8 @@ public class CustomerServiceImpl implements CustomerService {
 
             card.setCustomer(customer);
             card.setEncriptedCardJson(encriptedCardRequestString);
-            card.setPrivateKey(new String(keyPair.getPrivate().getEncoded()));
-            card.setPublicKey(new String(keyPair.getPublic().getEncoded()));
+            card.setPrivateKey(savePrivateKey(keyPair.getPrivate()));
+            card.setPublicKey(savePublicKey(keyPair.getPublic()));
             card.setIsActive(Boolean.TRUE);
             card.setModifyDt(new Date());
             card.setRegisterDt(new Date());
@@ -189,23 +190,28 @@ public class CustomerServiceImpl implements CustomerService {
         }
     }
 
+    public static String savePrivateKey(PrivateKey privateKey) {
+        byte[] privateKeyBytes = privateKey.getEncoded();
+        return Base64.getEncoder().encodeToString(privateKeyBytes);
+    }
+
+    public static String savePublicKey(PublicKey publicKey) {
+        byte[] publicKeyBytes = publicKey.getEncoded();
+        return Base64.getEncoder().encodeToString(publicKeyBytes);
+    }
+
     private String decryptHashMessage(String privateKey, String encryptedMessage) throws Exception {
+        byte[] privateKeyBytes = Base64.getDecoder().decode(privateKey);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        PrivateKey privateKeyObj = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
 
-        String[] parts = encryptedMessage.split("\\|");
-        String message = parts[0];
-        String signatureString = parts[1];
-        String publicKeyString = parts[2];
+        Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+        cipher.init(Cipher.DECRYPT_MODE, privateKeyObj);
 
-        Signature signature = Signature.getInstance("SHA256withRSA");
-        signature.initVerify(this.publicKeyFromBase64String(publicKeyString));
-        signature.update(message.getBytes(CHARSET));
-        boolean signatureValid = signature.verify(Base64.getDecoder().decode(signatureString));
+        byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessage);
+        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
 
-        if (signatureValid) {
-            return message;
-        } else {
-            throw new Exception("Invalid signature");
-        }
+        return new String(decryptedBytes, StandardCharsets.UTF_8);
     }
 
     private PublicKey publicKeyFromBase64String(String publicKeyString) throws Exception {
@@ -270,7 +276,7 @@ public class CustomerServiceImpl implements CustomerService {
             throw new Exception("Cliente não encontrado.");
         }
 
-        CustomerCard card = cardRepository.findByEncriptedCardJsonAndCustomer_Cpf(customer.getCpf(), request.getEncriptedCard());
+        CustomerCard card = cardRepository.findByEncriptedCardJson(request.getEncriptedCard());
         if(card == null) {
             throw new Exception("Cartão não encontrado");
         }
@@ -279,7 +285,7 @@ public class CustomerServiceImpl implements CustomerService {
 
     private CustomerCardVO deCriptedCard(CustomerCard card, CustomerVO customerVO) throws Exception {
 
-        String decript = this.decryptHashMessage(card.getPrivateKey(),card.getEncriptedCardJson());
+        String decript = this.decryptHashMessage(card.getPrivateKey(), card.getEncriptedCardJson());
 
         CustomerCardVO cardVO = new CustomerCardVO();
         cardVO.setCustomer(customerVO);

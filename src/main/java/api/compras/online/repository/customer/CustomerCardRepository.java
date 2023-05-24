@@ -16,5 +16,5 @@ public interface CustomerCardRepository extends PagingAndSortingRepository<Custo
     @Query(value = "from CustomerCard cc where cc.customer =:customer")
     Page<CustomerCard> getAllByCustomer(@Param("customer") Customer customer, Pageable pageable);
 
-    CustomerCard findByEncriptedCardJsonAndCustomer_Cpf(String cpf, String encriptedCardJson);
+    CustomerCard findByEncriptedCardJson(String encriptedCardJson);
 }

@@ -26,7 +26,7 @@ public class CustomerController {
         return new ResponseEntity<>(customerService.encriptCard(request), HttpStatus.OK);
     }
 
-    @GetMapping("/card/decript")
+    @PostMapping("/card/decript")
     public ResponseEntity<Object> decript(@RequestBody CustomerCryptCardRequest request) throws Exception {
         return new ResponseEntity<>(customerService.deCriptCard(request), HttpStatus.OK);
     }
