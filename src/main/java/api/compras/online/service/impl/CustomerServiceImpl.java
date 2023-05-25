@@ -157,10 +157,6 @@ public class CustomerServiceImpl implements CustomerService {
         try {
             Customer customer = findCustomerByCpf(request.getCustomer().getCpf());
 
-            if(customer.getCards().isEmpty()) {
-                customer.setCards(new ArrayList<>());
-            }
-
             request.setCustomer(null);
             KeyPair keyPair = this.createKeyPair();
             String encriptedCardRequestString = encryptHashMessage(keyPair, request);
@@ -182,6 +178,7 @@ public class CustomerServiceImpl implements CustomerService {
             card.setRegisterDt(new Date());
 
             customer.getCards().add(card);
+
             repository.save(customer);
             return new CustomerCardVO(card);
 
@@ -289,6 +286,7 @@ public class CustomerServiceImpl implements CustomerService {
         String decript = this.decryptHashMessage(card.getPrivateKey(), card.getEncriptedCardJson());
         return decript;
 //TODO encript card message as JSON not as entity class
+
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        CustomerCreateCardRequest cardData = objectMapper.readValue(decript, CustomerCreateCardRequest.class);
 //
