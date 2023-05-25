@@ -13,7 +13,8 @@ import api.compras.online.repository.customer.CustomerCardRepository;
 import api.compras.online.repository.customer.CustomerRepository;
 import api.compras.online.repository.customer.CustomerTransactionRepository;
 import api.compras.online.service.CustomerService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import org.json.JSONObject;
 import org.junit.platform.commons.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -35,8 +36,6 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.*;
-
-import static org.apache.catalina.manager.Constants.CHARSET;
 
 
 @Service
@@ -198,7 +197,22 @@ public class CustomerServiceImpl implements CustomerService {
         return Base64.getEncoder().encodeToString(publicKeyBytes);
     }
 
-    private String decryptHashMessage(String privateKey, String encryptedMessage) throws Exception {
+    private CustomerCreateCardRequest decryptHashMessageWithPublicKey(String publicKeyBase64, String encryptedMessage) throws Exception {
+        byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyBase64);
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        PublicKey publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(publicKeyBytes));
+
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        cipher.init(Cipher.DECRYPT_MODE, publicKey);
+
+        byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessage);
+        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+
+        Gson gson = new Gson();
+        return gson.fromJson(new String(decryptedBytes, StandardCharsets.UTF_8), CustomerCreateCardRequest.class);
+    }
+
+    private CustomerCreateCardRequest decryptHashMessageWithPrivateKey(String privateKey, String encryptedMessage) throws Exception {
         byte[] privateKeyBytes = Base64.getDecoder().decode(privateKey);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PrivateKey privateKeyObj = keyFactory.generatePrivate(new PKCS8EncodedKeySpec(privateKeyBytes));
@@ -209,7 +223,8 @@ public class CustomerServiceImpl implements CustomerService {
         byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessage);
         byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
 
-        return new String(decryptedBytes, StandardCharsets.UTF_8);
+        Gson gson = new Gson();
+        return gson.fromJson(new String(decryptedBytes, StandardCharsets.UTF_8), CustomerCreateCardRequest.class);
     }
 
     private PublicKey publicKeyFromBase64String(String publicKeyString) throws Exception {
@@ -223,7 +238,8 @@ public class CustomerServiceImpl implements CustomerService {
         Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
         cipher.init(Cipher.ENCRYPT_MODE, keyPair.getPublic());
 
-        byte[] encryptedBytes = cipher.doFinal(request.toString().getBytes(StandardCharsets.UTF_8));
+        JSONObject jsonObject = new JSONObject(request);
+        byte[] encryptedBytes = cipher.doFinal(jsonObject.toString().getBytes(StandardCharsets.UTF_8));
         String encryptedBase64 = Base64.getEncoder().encodeToString(encryptedBytes);
 
         return encryptedBase64;
@@ -278,28 +294,26 @@ public class CustomerServiceImpl implements CustomerService {
         if(card == null) {
             throw new Exception("Cartão não encontrado");
         }
-        return this.deCriptedCard(card, new CustomerVO(customer));
+        return this.deCriptedCard(card, new CustomerVO(customer), request);
     }
 
-    private Object deCriptedCard(CustomerCard card, CustomerVO customerVO) throws Exception {
+    private Object deCriptedCard(CustomerCard card, CustomerVO customerVO, CustomerCryptCardRequest request) throws Exception {
+        CustomerCreateCardRequest decriptedCard = this.decryptHashMessageWithPrivateKey(request.getPrivateKey(), card.getEncriptedCardJson());
+//        if(!request.getPublicKey().isBlank()) {
+//            decriptedCard = this.decryptHashMessageWithPublicKey(request.getPublicKey(), card.getEncriptedCardJson());
+//        } else {
+//            decriptedCard = this.decryptHashMessageWithPrivateKey(request.getPrivateKey(), c  ard.getEncriptedCardJson());
+//        }
 
-        String decript = this.decryptHashMessage(card.getPrivateKey(), card.getEncriptedCardJson());
-        return decript;
-//TODO encript card message as JSON not as entity class
-
-//        ObjectMapper objectMapper = new ObjectMapper();
-//        CustomerCreateCardRequest cardData = objectMapper.readValue(decript, CustomerCreateCardRequest.class);
-//
-//        CustomerCardVO cardVO = new CustomerCardVO();
-//        cardVO.setCustomer(customerVO);
-//        cardVO.setFullName(cardData.getFullName());
-//        cardVO.setFlagName(cardData.getFlagName());
-//        cardVO.setNumber(cardData.getNumber());
-//        cardVO.setIsCredit(cardData.getIsCredit());
-//        cardVO.setSecCode(cardData.getSecCode());
-//        cardVO.setValidThru(cardData.getValidThru());
-//
-//        return cardVO;
+        CustomerCardVO cardVO = new CustomerCardVO();
+        cardVO.setCustomer(customerVO);
+        cardVO.setFullName(decriptedCard.getFullName());
+        cardVO.setFlagName(decriptedCard.getFlagName());
+        cardVO.setNumber(decriptedCard.getNumber());
+        cardVO.setIsCredit(decriptedCard.getIsCredit());
+        cardVO.setSecCode(decriptedCard.getSecCode());
+        cardVO.setValidThru(decriptedCard.getValidThru());
+        return cardVO;
     }
 
     private void validateDecriptRequest(CustomerCryptCardRequest request) throws Exception {
@@ -314,6 +328,9 @@ public class CustomerServiceImpl implements CustomerService {
         }
         if(request.getEncriptedCard() == null) {
             throw new Exception("Cartão inválido.");
+        }
+        if(request.getPrivateKey().isBlank() && request.getPublicKey().isBlank()){
+            throw new Exception("Chave inválido.");
         }
     }
 

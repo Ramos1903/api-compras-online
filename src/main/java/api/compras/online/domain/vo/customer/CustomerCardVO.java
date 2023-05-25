@@ -17,6 +17,8 @@ public class CustomerCardVO {
 
     private Long id;
     private String encriptedCardJson;
+    private String privateKey;
+    private String publicKey;
 
     private CustomerVO customer;
     private String fullName;
@@ -30,6 +32,8 @@ public class CustomerCardVO {
         if (c == null) return;
        // this.id = c.getId();
         this.encriptedCardJson = c.getEncriptedCardJson();
+        this.privateKey = c.getPrivateKey();
+        this.publicKey = c.getPublicKey();
         // this.customer = new CustomerVO(c.getCustomer());
     }
 }

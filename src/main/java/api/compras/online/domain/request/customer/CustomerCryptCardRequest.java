@@ -16,7 +16,7 @@ public class CustomerCryptCardRequest {
 
     private CustomerVO customer;
     private String encriptedCard;
-    private String decriptedCard;
+    private String privateKey;
     private String publicKey;
 
 }

@@ -1,6 +1,5 @@
 package api.compras.online.entity.customer;
 
-import api.compras.online.entity.model.UserModel;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
